@@ -59,7 +59,7 @@ jobs:
           path: target/bundled/feed_be_back.vst3
 
   build-macos-intel:
-    runs-on: macos-13
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -74,7 +74,7 @@ jobs:
           path: target/x86_64-apple-darwin/bundled/feed_be_back.vst3
 
   build-macos-arm:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
