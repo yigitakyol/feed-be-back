@@ -36,14 +36,20 @@ jobs:
             libasound2-dev \
             libgl-dev \
             libx11-dev \
+            libx11-xcb-dev \
             libxcb1-dev \
+            libxcb-icccm4-dev \
+            libxcb-render0-dev \
+            libxcb-xfixes0-dev \
             libxcursor-dev \
             libxrandr-dev \
             libxi-dev \
             libxkbcommon-dev \
             libxkbcommon-x11-dev \
             libatk1.0-dev \
-            libgtk-3-dev
+            libgtk-3-dev \
+            libpango1.0-dev \
+            libglib2.0-dev
       - name: Build VST3
         run: cargo xtask bundle ${{ env.PLUGIN_NAME }} --release
       - name: Upload Linux VST3
