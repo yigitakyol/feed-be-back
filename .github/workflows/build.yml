@@ -66,24 +66,38 @@ jobs:
         with:
           targets: x86_64-apple-darwin,aarch64-apple-darwin
       - name: Build VST3 (Apple Silicon)
-        run: cargo xtask bundle ${{ env.PLUGIN_NAME }} --release --target aarch64-apple-darwin
+        run: |
+          cargo xtask bundle ${{ env.PLUGIN_NAME }} --release --target aarch64-apple-darwin
+          mkdir -p target/aarch64-bundled
+          cp -R target/bundled/feed_be_back.vst3 target/aarch64-bundled/
       - name: Build VST3 (Intel)
-        run: cargo xtask bundle ${{ env.PLUGIN_NAME }} --release --target x86_64-apple-darwin
+        run: |
+          cargo xtask bundle ${{ env.PLUGIN_NAME }} --release --target x86_64-apple-darwin
+          mkdir -p target/x86_64-bundled
+          cp -R target/bundled/feed_be_back.vst3 target/x86_64-bundled/
         continue-on-error: true
       - name: Create Universal Binary (if both exist)
         run: |
-          ARM_PATH="target/aarch64-apple-darwin/bundled/feed_be_back.vst3/Contents/MacOS/feed_be_back"
-          INTEL_PATH="target/x86_64-apple-darwin/bundled/feed_be_back.vst3/Contents/MacOS/feed_be_back"
+          ARM_PATH="target/aarch64-bundled/feed_be_back.vst3/Contents/MacOS/feed_be_back"
+          INTEL_PATH="target/x86_64-bundled/feed_be_back.vst3/Contents/MacOS/feed_be_back"
           UNIVERSAL_DIR="target/universal-bundled/feed_be_back.vst3"
           
           if [ -f "$ARM_PATH" ] && [ -f "$INTEL_PATH" ]; then
             echo "Creating Universal Binary..."
-            cp -R target/aarch64-apple-darwin/bundled/feed_be_back.vst3 target/universal-bundled/feed_be_back.vst3
+            mkdir -p target/universal-bundled
+            cp -R target/aarch64-bundled/feed_be_back.vst3 target/universal-bundled/feed_be_back.vst3
             lipo -create "$ARM_PATH" "$INTEL_PATH" -output "$UNIVERSAL_DIR/Contents/MacOS/feed_be_back"
-          else
+          elif [ -f "$ARM_PATH" ]; then
             echo "Using ARM-only build..."
             mkdir -p target/universal-bundled
-            cp -R target/aarch64-apple-darwin/bundled/feed_be_back.vst3 target/universal-bundled/feed_be_back.vst3
+            cp -R target/aarch64-bundled/feed_be_back.vst3 target/universal-bundled/feed_be_back.vst3
+          elif [ -f "$INTEL_PATH" ]; then
+            echo "Using Intel-only build..."
+            mkdir -p target/universal-bundled
+            cp -R target/x86_64-bundled/feed_be_back.vst3 target/universal-bundled/feed_be_back.vst3
+          else
+            echo "Error: Both ARM and Intel builds failed."
+            exit 1
           fi
         continue-on-error: false
       - name: Upload macOS VST3
