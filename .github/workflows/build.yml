@@ -58,38 +58,42 @@ jobs:
           name: feed-be-back-linux-vst3
           path: target/bundled/feed_be_back.vst3
 
-  build-macos-intel:
+  build-macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-apple-darwin
-      - name: Build VST3 (Intel)
-        run: cargo xtask bundle ${{ env.PLUGIN_NAME }} --release --target x86_64-apple-darwin
-      - name: Upload macOS Intel VST3
-        uses: actions/upload-artifact@v4
-        with:
-          name: feed-be-back-macos-intel-vst3
-          path: target/x86_64-apple-darwin/bundled/feed_be_back.vst3
-
-  build-macos-arm:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
       - name: Build VST3 (Apple Silicon)
         run: cargo xtask bundle ${{ env.PLUGIN_NAME }} --release --target aarch64-apple-darwin
-      - name: Upload macOS ARM VST3
+      - name: Build VST3 (Intel)
+        run: cargo xtask bundle ${{ env.PLUGIN_NAME }} --release --target x86_64-apple-darwin
+        continue-on-error: true
+      - name: Create Universal Binary (if both exist)
+        run: |
+          ARM_PATH="target/aarch64-apple-darwin/bundled/feed_be_back.vst3/Contents/MacOS/feed_be_back"
+          INTEL_PATH="target/x86_64-apple-darwin/bundled/feed_be_back.vst3/Contents/MacOS/feed_be_back"
+          UNIVERSAL_DIR="target/universal-bundled/feed_be_back.vst3"
+          
+          if [ -f "$ARM_PATH" ] && [ -f "$INTEL_PATH" ]; then
+            echo "Creating Universal Binary..."
+            cp -R target/aarch64-apple-darwin/bundled/feed_be_back.vst3 target/universal-bundled/feed_be_back.vst3
+            lipo -create "$ARM_PATH" "$INTEL_PATH" -output "$UNIVERSAL_DIR/Contents/MacOS/feed_be_back"
+          else
+            echo "Using ARM-only build..."
+            mkdir -p target/universal-bundled
+            cp -R target/aarch64-apple-darwin/bundled/feed_be_back.vst3 target/universal-bundled/feed_be_back.vst3
+          fi
+        continue-on-error: false
+      - name: Upload macOS VST3
         uses: actions/upload-artifact@v4
         with:
-          name: feed-be-back-macos-arm-vst3
-          path: target/aarch64-apple-darwin/bundled/feed_be_back.vst3
+          name: feed-be-back-macos-vst3
+          path: target/universal-bundled/feed_be_back.vst3
 
   release:
-    needs: [build-windows, build-linux, build-macos-intel, build-macos-arm]
+    needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
@@ -100,13 +104,15 @@ jobs:
         with:
           path: release-artifacts
 
+      - name: List artifacts
+        run: find release-artifacts -type f
+
       - name: Package releases
         run: |
           cd release-artifacts
-          zip -r ../Feed-Be-Back-Windows.zip feed-be-back-windows-vst3/
-          tar -czf ../Feed-Be-Back-Linux.tar.gz feed-be-back-linux-vst3/
-          zip -r ../Feed-Be-Back-macOS-Intel.zip feed-be-back-macos-intel-vst3/
-          zip -r ../Feed-Be-Back-macOS-AppleSilicon.zip feed-be-back-macos-arm-vst3/
+          [ -d "feed-be-back-windows-vst3" ] && zip -r ../Feed-Be-Back-Windows.zip feed-be-back-windows-vst3/ || echo "No Windows build"
+          [ -d "feed-be-back-linux-vst3" ] && tar -czf ../Feed-Be-Back-Linux.tar.gz feed-be-back-linux-vst3/ || echo "No Linux build"
+          [ -d "feed-be-back-macos-vst3" ] && zip -r ../Feed-Be-Back-macOS.zip feed-be-back-macos-vst3/ || echo "No macOS build"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -115,5 +121,4 @@ jobs:
           files: |
             Feed-Be-Back-Windows.zip
             Feed-Be-Back-Linux.tar.gz
-            Feed-Be-Back-macOS-Intel.zip
-            Feed-Be-Back-macOS-AppleSilicon.zip
+            Feed-Be-Back-macOS.zip
