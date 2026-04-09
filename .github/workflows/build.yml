@@ -1,0 +1,113 @@
+name: Build Feed Be-Back VST3
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  PLUGIN_NAME: feed_be_back
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build VST3
+        run: cargo xtask bundle ${{ env.PLUGIN_NAME }} --release
+      - name: Upload Windows VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-be-back-windows-vst3
+          path: target/bundled/feed_be_back.vst3
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libgl-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxcursor-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libatk1.0-dev \
+            libgtk-3-dev
+      - name: Build VST3
+        run: cargo xtask bundle ${{ env.PLUGIN_NAME }} --release
+      - name: Upload Linux VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-be-back-linux-vst3
+          path: target/bundled/feed_be_back.vst3
+
+  build-macos-intel:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+      - name: Build VST3 (Intel)
+        run: cargo xtask bundle ${{ env.PLUGIN_NAME }} --release --target x86_64-apple-darwin
+      - name: Upload macOS Intel VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-be-back-macos-intel-vst3
+          path: target/x86_64-apple-darwin/bundled/feed_be_back.vst3
+
+  build-macos-arm:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+      - name: Build VST3 (Apple Silicon)
+        run: cargo xtask bundle ${{ env.PLUGIN_NAME }} --release --target aarch64-apple-darwin
+      - name: Upload macOS ARM VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: feed-be-back-macos-arm-vst3
+          path: target/aarch64-apple-darwin/bundled/feed_be_back.vst3
+
+  release:
+    needs: [build-windows, build-linux, build-macos-intel, build-macos-arm]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Package releases
+        run: |
+          cd release-artifacts
+          zip -r ../Feed-Be-Back-Windows.zip feed-be-back-windows-vst3/
+          tar -czf ../Feed-Be-Back-Linux.tar.gz feed-be-back-linux-vst3/
+          zip -r ../Feed-Be-Back-macOS-Intel.zip feed-be-back-macos-intel-vst3/
+          zip -r ../Feed-Be-Back-macOS-AppleSilicon.zip feed-be-back-macos-arm-vst3/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Feed Be-Back ${{ github.ref_name }}
+          files: |
+            Feed-Be-Back-Windows.zip
+            Feed-Be-Back-Linux.tar.gz
+            Feed-Be-Back-macOS-Intel.zip
+            Feed-Be-Back-macOS-AppleSilicon.zip

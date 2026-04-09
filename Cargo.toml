@@ -1,0 +1,23 @@
+[package]
+name = "feed_be_back"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = [".", "xtask"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+# We use nih_plug for VST3 wrapping
+nih_plug = { git = "https://github.com/robbert-vdh/nih-plug.git" }
+nih_plug_egui = { git = "https://github.com/robbert-vdh/nih-plug.git" }
+deep_filter = { git = "https://github.com/Rikorose/DeepFilterNet.git", features = ["tract", "default-model"] }
+tract-onnx = "=0.21.4"
+tract-core = "=0.21.4"
+tract-pulse = "=0.21.4"
+tract-hir = "=0.21.4"
+ndarray = "0.15" # Required for deep_filter process() arguments
+parking_lot = "0.12"
+ringbuf = "0.3.3"   # Useful for latency handling if needed
